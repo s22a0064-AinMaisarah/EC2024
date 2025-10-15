@@ -1,13 +1,13 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import matplotlib.pyplot as plt
 
 # Define CSV URL and encoding
 CSV_URL = 'https://raw.githubusercontent.com/s22a0064-AinMaisarah/EC2024/refs/heads/main/cleaned_student_survey.csv'
 ENCODING_TYPE = 'cp1252'
 
 # Streamlit app title
-st.title('Gender Distribution Analysis 🧑‍🤝‍🧑')
+st.title('Gender Distribution of 4th Year Students 🧑‍🤝‍🧑')
 st.markdown('---')
 
 # Load and cache data
@@ -23,30 +23,45 @@ def load_data(url, encoding):
         st.error(f"Error loading data: {e}")
         return None
 
-# Load data
+# Load the dataset
 df = load_data(CSV_URL, ENCODING_TYPE)
 
-# Generate pie chart if data loaded successfully
-if df is not None and 'Gender' in df.columns:
-    gender_counts = df['Gender'].value_counts().reset_index()
-    gender_counts.columns = ['Gender', 'Count']
+if df is not None:
+    # Clean missing data
+    missing_percentage = df.isnull().sum() / len(df) * 100
+    cols_to_drop = missing_percentage[missing_percentage > 50].index
+    df_cleaned = df.drop(columns=cols_to_drop)
 
-    fig = px.pie(
-        gender_counts,
-        names='Gender',
-        values='Count',
-        title='Overall Gender Distribution',
-        color_discrete_sequence=px.colors.qualitative.D3,
-        hole=0.4  # donut style
-    )
+    # Fill missing values with mode
+    for col in df_cleaned.columns:
+        if df_cleaned[col].isnull().sum() > 0:
+            mode_value = df_cleaned[col].mode()[0]
+            df_cleaned[col].fillna(mode_value, inplace=True)
 
-    fig.update_traces(
-        textposition='inside',
-        textinfo='percent+label',
-        marker=dict(line=dict(color='#000000', width=1))
-    )
+    # Filter for 4th-year students
+    if 'Bachelor  Academic Year in EU' in df_cleaned.columns:
+        fourth_year_students = df_cleaned[df_cleaned['Bachelor  Academic Year in EU'] == '4th Year']
 
-    st.plotly_chart(fig, use_container_width=True)
+        if not fourth_year_students.empty:
+            # Count gender distribution for 4th year
+            gender_counts_4th_year = fourth_year_students['Gender'].value_counts()
 
+            # Create Matplotlib pie chart
+            fig, ax = plt.subplots(figsize=(8, 8))
+            ax.pie(
+                gender_counts_4th_year,
+                labels=gender_counts_4th_year.index,
+                autopct='%1.1f%%',
+                startangle=90
+            )
+            ax.set_title('Gender Distribution of 4th Year Students (Pie Chart)')
+            ax.axis('equal')
+
+            # Display chart in Streamlit
+            st.pyplot(fig)
+        else:
+            st.warning("No data found for 4th Year students.")
+    else:
+        st.error("Column 'Bachelor  Academic Year in EU' not found in dataset.")
 else:
-    st.error("The dataset could not be loaded or does not contain a 'Gender' column.")
+    st.error("Failed to load dataset from GitHub.")
