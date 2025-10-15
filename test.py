@@ -57,6 +57,9 @@ if df is not None:
             ax.set_title('Gender Distribution of 4th Year Students (Pie Chart)')
             ax.axis('equal')
 
+            # Add legend
+            ax.legend(gender_counts_4th_year.index, title="Gender", loc="best")
+
             # Display chart in Streamlit
             st.pyplot(fig)
         else:
