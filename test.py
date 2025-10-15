@@ -1,67 +1,80 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.express as px
 
-# Define CSV URL and encoding
+# --- CONFIGURATION ---
 CSV_URL = 'https://raw.githubusercontent.com/s22a0064-AinMaisarah/EC2024/refs/heads/main/cleaned_student_survey.csv'
 ENCODING_TYPE = 'cp1252'
 
-# Streamlit app title
-st.title('Gender Distribution of 4th Year Students 🧑‍🤝‍🧑')
-st.markdown('---')
+# --- STREAMLIT APP TITLE ---
+st.title("🎓 Gender Distribution of 4th Year Students")
+st.markdown("This dashboard shows the gender distribution among 4th-year students based on the provided dataset.")
+st.markdown("---")
 
-# Load and cache data
+# --- DATA LOADING FUNCTION ---
 @st.cache_data
 def load_data(url, encoding):
+    """Loads and caches data from GitHub with specified encoding."""
     try:
         df = pd.read_csv(url, encoding=encoding)
         return df
     except UnicodeDecodeError:
-        st.error(f"Could not decode the file with {encoding}.")
-        return None
+        st.error(f"Could not decode the file with encoding: {encoding}.")
+        return pd.DataFrame()
     except Exception as e:
         st.error(f"Error loading data: {e}")
-        return None
+        return pd.DataFrame()
 
-# Load the dataset
+# --- LOAD THE DATA ---
 df = load_data(CSV_URL, ENCODING_TYPE)
 
-if df is not None:
-    # Clean missing data
+# --- DATA CLEANING ---
+if not df.empty:
+    st.subheader("📋 Raw Data Preview")
+    st.dataframe(df.head())
+
+    # Handle missing values
     missing_percentage = df.isnull().sum() / len(df) * 100
     cols_to_drop = missing_percentage[missing_percentage > 50].index
     df_cleaned = df.drop(columns=cols_to_drop)
 
-    # Fill missing values with mode
     for col in df_cleaned.columns:
         if df_cleaned[col].isnull().sum() > 0:
             mode_value = df_cleaned[col].mode()[0]
             df_cleaned[col].fillna(mode_value, inplace=True)
 
-    # Filter for 4th-year students
+    # --- FILTER FOR 4TH YEAR STUDENTS ---
     if 'Bachelor  Academic Year in EU' in df_cleaned.columns:
         fourth_year_students = df_cleaned[df_cleaned['Bachelor  Academic Year in EU'] == '4th Year']
 
         if not fourth_year_students.empty:
-            # Count gender distribution for 4th year
-            gender_counts_4th_year = fourth_year_students['Gender'].value_counts()
+            # --- COUNT GENDER DISTRIBUTION ---
+            gender_counts_df = fourth_year_students['Gender'].value_counts().reset_index()
+            gender_counts_df.columns = ['Gender', 'Count']
 
-            # Create Matplotlib pie chart
-            fig, ax = plt.subplots(figsize=(8, 8))
-            ax.pie(
-                gender_counts_4th_year,
-                labels=gender_counts_4th_year.index,
-                autopct='%1.1f%%',
-                startangle=90
+            # --- PLOTLY PIE CHART ---
+            fig = px.pie(
+                gender_counts_df,
+                values='Count',
+                names='Gender',
+                title='Gender Distribution of 4th Year Students',
+                color_discrete_sequence=px.colors.qualitative.D3
             )
-            ax.set_title('Gender Distribution of 4th Year Students (Pie Chart)')
-            ax.axis('equal')
 
-            # Add legend
-            ax.legend(gender_counts_4th_year.index, title="Gender", loc="best")
+            fig.update_traces(
+                textposition='inside',
+                textinfo='percent+label',
+                marker=dict(line=dict(color='#000000', width=1))
+            )
 
-            # Display chart in Streamlit
-            st.pyplot(fig)
+            fig.update_layout(title_x=0.5)
+
+            # --- DISPLAY CHART ---
+            st.plotly_chart(fig, use_container_width=True)
+
+            # --- SHOW DATA TABLE ---
+            st.subheader("🔢 Gender Count Data")
+            st.dataframe(gender_counts_df)
         else:
             st.warning("No data found for 4th Year students.")
     else:
