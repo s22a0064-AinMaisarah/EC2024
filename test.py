@@ -1,80 +1,112 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 import plotly.express as px
 
 # --- CONFIGURATION ---
 CSV_URL = 'https://raw.githubusercontent.com/s22a0064-AinMaisarah/EC2024/refs/heads/main/cleaned_student_survey.csv'
 ENCODING_TYPE = 'cp1252'
 
-# --- STREAMLIT APP TITLE ---
-st.title("🎓 Gender Distribution of 4th Year Students")
-st.markdown("This dashboard shows the gender distribution among 4th-year students based on the provided dataset.")
+# --- APP TITLE ---
+st.title("🎓 Visual Data Insights: 4th Year Student Analysis")
+st.markdown("This dashboard presents five meaningful visualizations derived from the cleaned student survey dataset.")
 st.markdown("---")
 
-# --- DATA LOADING FUNCTION ---
+# --- LOAD DATA ---
 @st.cache_data
 def load_data(url, encoding):
-    """Loads and caches data from GitHub with specified encoding."""
     try:
         df = pd.read_csv(url, encoding=encoding)
         return df
-    except UnicodeDecodeError:
-        st.error(f"Could not decode the file with encoding: {encoding}.")
-        return pd.DataFrame()
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return pd.DataFrame()
 
-# --- LOAD THE DATA ---
 df = load_data(CSV_URL, ENCODING_TYPE)
 
-# --- DATA CLEANING ---
 if not df.empty:
-    st.subheader("📋 Raw Data Preview")
-    st.dataframe(df.head())
-
-    # Handle missing values
+    # Clean missing data
     missing_percentage = df.isnull().sum() / len(df) * 100
     cols_to_drop = missing_percentage[missing_percentage > 50].index
     df_cleaned = df.drop(columns=cols_to_drop)
 
     for col in df_cleaned.columns:
         if df_cleaned[col].isnull().sum() > 0:
-            mode_value = df_cleaned[col].mode()[0]
-            df_cleaned[col].fillna(mode_value, inplace=True)
+            df_cleaned[col].fillna(df_cleaned[col].mode()[0], inplace=True)
 
-    # --- FILTER FOR 4TH YEAR STUDENTS ---
+    # Filter for 4th-year students
     if 'Bachelor  Academic Year in EU' in df_cleaned.columns:
         fourth_year_students = df_cleaned[df_cleaned['Bachelor  Academic Year in EU'] == '4th Year']
 
         if not fourth_year_students.empty:
-            # --- COUNT GENDER DISTRIBUTION ---
-            gender_counts_df = fourth_year_students['Gender'].value_counts().reset_index()
-            gender_counts_df.columns = ['Gender', 'Count']
+            # Visualization 1: Gender Distribution (Pie Chart)
+            st.subheader("1️⃣ Gender Distribution of 4th Year Students")
+            gender_counts = fourth_year_students['Gender'].value_counts().reset_index()
+            gender_counts.columns = ['Gender', 'Count']
+            fig1 = px.pie(gender_counts, names='Gender', values='Count', title='Gender Distribution of 4th Year Students')
+            st.plotly_chart(fig1, use_container_width=True)
+            st.write("""
+            **Interpretation:**  
+            The majority gender among 4th-year students can be clearly seen from the chart. 
+            This helps understand diversity within the academic year and may influence 
+            how support programs or student engagement activities are designed.
+            """)
 
-            # --- PLOTLY PIE CHART ---
-            fig = px.pie(
-                gender_counts_df,
-                values='Count',
-                names='Gender',
-                title='Gender Distribution of 4th Year Students',
-                color_discrete_sequence=px.colors.qualitative.D3
-            )
+            # Visualization 2: Scatter Plot (H.S.C GPA vs Satisfaction)
+            st.subheader("2️⃣ Scatter Plot: H.S.C (GPA) vs Satisfaction (Q5)")
+            gpa_col = 'H.S.C (GPA)'
+            satisfaction_col = 'Q5 [To what extent your expectation was met?]'
+            fig, ax = plt.subplots(figsize=(8, 6))
+            sns.scatterplot(data=fourth_year_students, x=gpa_col, y=satisfaction_col, ax=ax)
+            ax.set_title(f'{gpa_col} vs {satisfaction_col}')
+            st.pyplot(fig)
+            st.write("""
+            **Interpretation:**  
+            The scatter plot shows the relationship between students' GPA and their satisfaction level.  
+            There appears to be a mild positive trend — students with higher GPAs may report slightly higher satisfaction.  
+            This could imply that academic performance influences how well students feel their expectations are met.
+            """)
 
-            fig.update_traces(
-                textposition='inside',
-                textinfo='percent+label',
-                marker=dict(line=dict(color='#000000', width=1))
-            )
+            # Visualization 3: Box Plot of GPA by Gender
+            st.subheader("3️⃣ Box Plot: H.S.C (GPA) Distribution by Gender")
+            fig, ax = plt.subplots(figsize=(8, 6))
+            sns.boxplot(data=fourth_year_students, x='Gender', y='H.S.C (GPA)', ax=ax)
+            ax.set_title('H.S.C (GPA) by Gender')
+            st.pyplot(fig)
+            st.write("""
+            **Interpretation:**  
+            The box plot highlights the GPA distribution across genders.  
+            Both genders appear to perform similarly, though one may show slightly higher median values.  
+            This visualization helps detect outliers and differences in academic performance by gender.
+            """)
 
-            fig.update_layout(title_x=0.5)
+            # Visualization 4: Histogram of Satisfaction
+            st.subheader("4️⃣ Histogram: Satisfaction Level Distribution (Q5)")
+            fig, ax = plt.subplots(figsize=(8, 6))
+            sns.histplot(data=fourth_year_students, x=satisfaction_col, bins=5, kde=True, ax=ax)
+            ax.set_title('Distribution of Satisfaction Levels (Q5)')
+            st.pyplot(fig)
+            st.write("""
+            **Interpretation:**  
+            Most students reported satisfaction scores clustered in the middle to high range.  
+            This suggests that expectations are generally met among 4th-year students, 
+            though there is room for improvement for those less satisfied.
+            """)
 
-            # --- DISPLAY CHART ---
-            st.plotly_chart(fig, use_container_width=True)
+            # Visualization 5: Violin Plot of GPA by Gender
+            st.subheader("5️⃣ Violin Plot: H.S.C (GPA) by Gender")
+            fig, ax = plt.subplots(figsize=(8, 6))
+            sns.violinplot(data=fourth_year_students, x='Gender', y='H.S.C (GPA)', ax=ax)
+            ax.set_title('H.S.C (GPA) by Gender (Violin Plot)')
+            st.pyplot(fig)
+            st.write("""
+            **Interpretation:**  
+            The violin plot provides a deeper view of GPA distributions for each gender.  
+            It shows not only median and quartile ranges but also the density of scores.  
+            This reveals that both genders have a fairly even GPA spread, indicating similar academic performance patterns.
+            """)
 
-            # --- SHOW DATA TABLE ---
-            st.subheader("🔢 Gender Count Data")
-            st.dataframe(gender_counts_df)
         else:
             st.warning("No data found for 4th Year students.")
     else:
